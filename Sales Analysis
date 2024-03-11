@@ -1,7 +1,8 @@
 # Project: Sales Analysis
 ### This project is part of my "Professional Certificate Course in AI and Machine Learning by IIT- Kanpur".
 #### Introduction to Project: 
-Project Statement:
+
+# Project Statement:
 AAL is a household name in Australia, known for its clothing business since 2000. It caters to all groups— kids, women, men, and seniors. It has opened branches in many states in Australia, in metropolises and tier-1 and tier-2 cities. 
 The business is booming, and the company is in an expansion mode. It wants to get an in-depth understanding of its sales so that it can make investment decisions. The CEO has tasked the Head of Sales and Marketing (S&M) of AAL to:
 1)	Determine the states that are generating the highest revenues and
@@ -9,4 +10,284 @@ The business is booming, and the company is in an expansion mode. It wants to ge
 Analyze the company’s sales data for the fourth quarter across Australia, and state by state and help the company make data-driven decisions for the coming year. 
 
 ## Python Code:
+#Importing required libraries 
+  import numpy as np
+  import pandas as pd
+  import seaborn as sns
+  import matplotlib.pyplot as plt
+  from sklearn.preprocessing import StandardScaler
 
+Reading the data and saving data set into variable df
+  saving the data set into variable df
+  df = pd.read_excel("sales_analysis_data.xlsx")
+  df.head()
+
+Preprocessing and cleaning the data
+  #Duplicate dataset
+  df1 = df.copy()
+  # Number of rows
+  print("Total enrties:\n",df1.shape[0])
+  # Column names or features
+  print("Feature names:\n",df1.columns.tolist())
+  #check for missing values
+  print("Missing Values:\n",df1.isnull().sum())
+  #cheking for datatypes
+  print("Data types:\n", df1.dtypes)
+  #removing white space from the column name 
+  df1['Group'] = df1['Group'].str.strip()
+  df['State'] = df['State'].str.strip()
+  df['Group'] = df['Group'].str.strip()
+
+  #making it for all remaining columns
+  df1.columns = df1.columns.str.strip()
+  #print cleaned dataset
+  print("Cleaned dataset \n:", df1.head())
+
+Data Wrangling
+  #print statistical summary
+  print("Statistical summary:\n")
+  df1.describe()
+
+Inference on statistical summary
+  On average 18 units are sold, a minimum of 2 and a maximum of 65.
+  Units sold have a standard deviation of 12.90 indicating the dispersion of data around the mean 18.
+  25% of the dataset has 8 or fewer units sold, 50% dataset has 14 or fewer units sold and 75% of the dataset have 26 or less unit sold.
+  On an average 45013.56 sales earning is done.
+  25% of the dataset has 20,000 sales or less, 50% of the dataset has 35,000 sales or less, and 75% of dataset have 65,000 or less sales.
+  The maximum sales are 1,62,500 but 75% of the dataset falls within 65,000 or less. which indicates the sales may have outliers present, particularly towards the higher end of the distribution.
+  The IQR (interquartile range) for sales can give more details about dataset distribution.
+
+#dealing with outliers
+  # let's see outliers if present through box plot
+  plt.figure(figsize = (8,8))
+  sns.boxplot(x='Sales', data=df1)
+  plt.title("Boxplot for outlier identification")
+  plt.show()
+  The boxplot shows outliers in the Sales at higher Sales value. Which should be considered before further analysis.
+
+#calculating the IQR (inter quartile range)
+  q1 = df1['Sales'].quantile(0.25)
+  print("25% sale:", q1)
+  q3 = df1['Sales'].quantile(0.75)
+  print("75% sale:", q3)
+  IQR = q3 - q1
+  print("Inter quartile range:", IQR)
+
+#defining upper and lower bound for outliers
+#lower bound
+  lb = q1 - 1.5 *IQR
+  print("Lower bound:", lb)
+#upper bound
+  ub = q3 + 1.5 *IQR
+  print("Upper bound:", ub)
+
+#identifying outliers
+  o = df1[(df1['Sales']< lb) | (df1['Sales']> ub)]
+  print("Outliers \n")
+  print(o)
+
+#removeing outliers
+  df1 =df1[(df1['Sales'] >= lb) & (df1['Sales']<= ub)]
+
+#visualizing through box plot 
+plt.figure(figsize = (8,8))
+sns.boxplot(x='Sales', data=df1)
+plt.title("Boxplot without outlier identification")
+plt.show()
+
+>> Data Normalization
+scaler = StandardScaler()
+sales_reshaped = df1['Sales'].values.reshape(-1,1)
+df1['Sales'] = scaler.fit_transform(sales_reshaped)
+print(df1.head())
+# Group by 'State' and calculate total revenue
+revenue_by_state = df1.groupby('State')['Sales'].sum().reset_index()
+# Determine the states generating the highest revenues
+highest_revenue_states = revenue_by_state.nlargest(5, 'Sales')
+print("States generating the highest revenues:")
+print(highest_revenue_states)
+# Formulate sales programs for states with lower revenues
+lower_revenue_states = revenue_by_state.nsmallest(5, 'Sales')
+print("States with lower revenues:")
+print(lower_revenue_states)
+
+Feature engineering
+#extracting month, day, year from Date column
+df1['Month'] = df1['Date'].dt.month
+df1['Year'] = df1['Date'].dt.year
+df1['Day'] = df1['Date'].dt.day
+
+#creating new feature for total sales per group
+total_sales_bygroup = df1.groupby('Group')['Sales'].sum().reset_index()
+total_sales_bygroup.columns = ['Group', 'Total_Sales']
+df1 = pd.merge(df1, total_sales_bygroup, on = 'Group', how = 'left')
+
+#Creating a new feature for total sales per state
+total_sales_per_state = df1.groupby('State')['Sales'].sum().reset_index()
+total_sales_per_state.columns = ['State', 'Total_Sales_State']
+df1 = pd.merge(df1, total_sales_per_state, on='State', how='left')
+
+#Creating a new feature for average sales per unit
+df1['Average_Sales_Per_Unit'] = df1['Sales'] / df1['Unit']
+
+#Creating a new feature for total sales per day
+total_sales_per_day = df1.groupby('Date')['Sales'].sum().reset_index()
+total_sales_per_day.columns = ['Date', 'Total_Sales_Day']
+df1 = pd.merge(df1, total_sales_per_day, on='Date', how='left')
+
+#Creating a new feature for total sales per month
+total_sales_per_month = df1.groupby(['Year', 'Month'])['Sales'].sum().reset_index()
+total_sales_per_month.columns = ['Year', 'Month', 'Total_Sales_Month']
+df1 = pd.merge(df1, total_sales_per_month, on=['Year', 'Month'], how='left')
+
+#Creating a new feature for total sales per group and state combination
+total_sales_per_group_state = df1.groupby(['Group', 'State'])['Sales'].sum().reset_index()
+total_sales_per_group_state.columns = ['Group', 'State', 'Total_Sales_Group_State']
+df1 = pd.merge(df1, total_sales_per_group_state, on=['Group', 'State'], how='left')
+
+#Creating total sales per week
+df1['Week'] = df1['Date'].dt.week
+total_sales_per_week = df1.groupby('Week')['Sales'].sum().reset_index()
+
+#updated dataframe
+df1.head()
+
+## Data Visualization
+1. Sales distribution by Group
+plt.figure(figsize=(10, 6))
+sns.boxplot(x='Group', y='Sales', data=df1)
+plt.title('Sales Distribution by Group')
+plt.xlabel('Group')
+plt.ylabel('Sales')
+plt.xticks(rotation=45)
+plt.show()
+
+2. Sales trends byState
+plt.figure(figsize=(12, 6))
+sns.boxplot(x='State', y='Sales', data=df1)
+plt.title('Sales Distribution by State')
+plt.xlabel('State')
+plt.ylabel('Sales')
+plt.xticks(rotation=45)
+plt.show()
+
+3. Total Sales over time
+total_sales_time = df1.groupby('Date')['Sales'].sum().reset_index()
+plt.figure(figsize=(12, 6))
+plt.plot(total_sales_time['Date'], total_sales_time['Sales'], marker='o')
+plt.title('Total Sales Over Time')
+plt.xlabel('Date')
+plt.ylabel('Total Sales')
+plt.xticks(rotation=45)
+plt.grid(True)
+plt.show()
+
+4. Average Sales per Unit by Group
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Group', y='Average_Sales_Per_Unit', data=df1)
+plt.title('Average Sales per Unit by Group')
+plt.xlabel('Group')
+plt.ylabel('Average Sales per Unit')
+plt.xticks(rotation=45)
+plt.show()
+
+5. Total sales per month
+total_sales_month = df1.groupby(['Year', 'Month'])['Sales'].sum().reset_index()
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='Month', y='Sales', hue='Year', data=total_sales_month)
+plt.title('Total Sales per Month')
+plt.xlabel('Month')
+plt.ylabel('Total Sales')
+plt.legend(title='Year')
+plt.xticks(range(10, 13))
+plt.grid(True)
+plt.show()
+
+6.Total Sales per week
+plt.figure(figsize=(12, 6))
+sns.lineplot(x='Week', y='Sales', data=total_sales_per_week)
+plt.title('Total Sales per Week')
+plt.xlabel('Week')
+plt.ylabel('Total Sales')
+plt.grid(True)
+plt.show()
+
+#Dashboard
+!pip install dash
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
+
+# Initialize the Dash app
+app = dash.Dash(__name__)
+
+# Define the layout of the dashboard
+app.layout = html.Div([
+    html.H1("Sales Analysis Dashboard"),
+    
+    # Dropdown for selecting sales group
+    dcc.Dropdown(
+        id='group-dropdown',
+        options=[{'label': group, 'value': group} for group in df1['Group'].unique()],
+        value=df1['Group'].value_counts().idxmax(),  # Set default to the most sold group
+        clearable=False,
+        style={'width': '50%'}
+    ),
+    
+    # Dropdown for selecting state
+    dcc.Dropdown(
+        id='state-dropdown',
+        options=[{'label': state, 'value': state} for state in df1['State'].unique()],
+        value=df1['State'].value_counts().idxmax(),  # Set default to the highest revenue state
+        clearable=False,
+        style={'width': '50%'}
+    ),
+    
+    # Graph for sales trends by month
+    dcc.Graph(id='sales-by-month-plot'),
+    
+    # Bar chart for total sales by state and group
+    html.Div([
+        dcc.Graph(id='total-sales-by-state-group')
+    ])
+])
+
+# Define callback to update the plot based on dropdown selection
+@app.callback(
+    [Output('sales-by-month-plot', 'figure'),
+     Output('total-sales-by-state-group', 'figure')],
+    [Input('group-dropdown', 'value'),
+     Input('state-dropdown', 'value')]
+)
+def update_plot(selected_group, selected_state):
+    # Filter data based on dropdown selection
+    filtered_df = df1[(df1['Group'] == selected_group) & (df1['State'] == selected_state)]
+    
+    # Sales trends by month
+    sales_by_month = filtered_df.groupby('Month')['Sales'].sum().reset_index()
+    fig_sales_by_month = px.line(sales_by_month, x='Month', y='Sales', title=f'Sales Trends for {selected_group} in {selected_state}')
+    
+    # Total sales by state and group
+    total_sales_state_group = filtered_df.groupby(['State', 'Group'])['Sales'].sum().reset_index()
+    fig_total_sales_state_group = px.bar(total_sales_state_group, x='State', y='Sales', color='Group', title='Total Sales by State and Group')
+    
+    return fig_sales_by_month, fig_total_sales_state_group
+
+# Run the app
+if __name__ == '__main__':
+    app.run_server(debug=True)
+
+# Conclusions
+> States Generating Highest Revenues:
+* During the forth quarter the states Victoria(VIC), New South Wales (NSW), and South Australia (SA). These states should be focused on for further investment and expansion due to their strong revenue generation.
+> States Generating Lower Revenues (Concern for Sales Program):
+* Weastern Australia (WA), Northern Territory (NT), and Tasmania (TAS) are generating lower revenues compared to others. The few programs, targeted sales programs can improve their sales performance.
+> Sales distribution by Group
+* It is evident that certain groups contribute more to overall sales which can be seen in dashboard.
+> Sales trends Over time
+* Visualizing sales trends over time, such as by month and week, provides insights into seasonal patterns and helps in forecasting future sales. This information can guide inventory management and marketing campaigns to align with periods of high sales activity.
+> Data Visualization Dashboard
+*The Sales Analysis Dashboard created using Dash provides a user-friendly interface for exploring sales data interactively. It allows stakeholders to dynamically select different sales groups and states to visualize sales trends, facilitating data-driven decision-making.
+- Project by Vaishnavi Patel
